@@ -11,16 +11,19 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.List;
 
 public class ProviderPromotionAdapter extends RecyclerView.Adapter<ProviderPromotionAdapter.PromoViewHolder> {
 
     private List<Promotion> promotions;
+    private DatabaseReference database;
 
     public ProviderPromotionAdapter(List<Promotion> promotions) {
         this.promotions = promotions;
+        this.database = FirebaseDatabase.getInstance().getReference();
     }
 
     @NonNull
@@ -35,19 +38,21 @@ public class ProviderPromotionAdapter extends RecyclerView.Adapter<ProviderPromo
         Promotion p = promotions.get(position);
         holder.textTitle.setText(p.getTitle());
         holder.textDescription.setText(p.getDescription());
-        holder.textPrice.setText(p.getPriceAfter() + " DT");
+        holder.textPrice.setText(String.format("%.2f DT", p.getPriceAfter()));
 
         holder.buttonEdit.setOnClickListener(v -> {
-            // Lancer Add/Edit Promotion Activity
             Intent intent = new Intent(v.getContext(), AddPromotionActivity.class);
             intent.putExtra("promoId", p.getId());
             v.getContext().startActivity(intent);
         });
 
         holder.buttonDelete.setOnClickListener(v -> {
-            FirebaseFirestore.getInstance().collection("promotions").document(p.getId())
-                    .delete()
-                    .addOnSuccessListener(aVoid -> Toast.makeText(v.getContext(), "Supprimé", Toast.LENGTH_SHORT).show());
+            // CHANGEMENT : Utiliser Realtime Database
+            database.child("promotions").child(p.getId()).removeValue()
+                    .addOnSuccessListener(aVoid ->
+                            Toast.makeText(v.getContext(), "Supprimé", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(e ->
+                            Toast.makeText(v.getContext(), "Erreur de suppression", Toast.LENGTH_SHORT).show());
         });
     }
 
@@ -70,4 +75,3 @@ public class ProviderPromotionAdapter extends RecyclerView.Adapter<ProviderPromo
         }
     }
 }
-

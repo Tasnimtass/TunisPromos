@@ -1,20 +1,24 @@
 package com.example.tunispromos;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.EditText;
+import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,25 +29,31 @@ public class UserActivity extends AppCompatActivity {
     private List<Promotion> promotionList;
     private PromotionAdapter adapter;
 
-    private FirebaseFirestore db;
+    private DatabaseReference database;
+    private FirebaseAuth auth;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user);
+
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle("Promotions disponibles");
+        }
 
         recyclerView = findViewById(R.id.recyclerPromotions);
         editSearch = findViewById(R.id.editSearch);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         promotionList = new ArrayList<>();
-        adapter = new PromotionAdapter(promotionList);
+        adapter = new PromotionAdapter(promotionList, this);
         recyclerView.setAdapter(adapter);
 
-        db = FirebaseFirestore.getInstance();
+        database = FirebaseDatabase.getInstance().getReference();
+        auth = FirebaseAuth.getInstance();
 
         loadPromotions();
 
-        // Filtrage simple par mot-clé
         editSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -54,18 +64,43 @@ public class UserActivity extends AppCompatActivity {
         });
     }
 
+    // CHANGEMENT : Utiliser Realtime Database avec ValueEventListener
     private void loadPromotions() {
-        db.collection("promotions")
-                .addSnapshotListener((value, error) -> {
-                    if(value != null){
-                        promotionList.clear();
-                        for(DocumentSnapshot doc : value.getDocuments()){
-                            Promotion p = doc.toObject(Promotion.class);
-                            promotionList.add(p);
-                        }
-                        adapter.notifyDataSetChanged();
+        database.child("promotions").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                promotionList.clear();
+                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                    Promotion p = snapshot.getValue(Promotion.class);
+                    if (p != null) {
+                        promotionList.add(p);
                     }
-                });
+                }
+                adapter.notifyDataSetChanged();
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Toast.makeText(UserActivity.this, "Erreur de chargement", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(0, 1, 0, "Se déconnecter");
+        return true;
     }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == 1) {
+            auth.signOut();
+            Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+}

@@ -11,7 +11,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -20,7 +21,7 @@ public class LoginActivity extends AppCompatActivity {
     private TextView textForgotPassword;
 
     private FirebaseAuth auth;
-    private FirebaseFirestore db;
+    private DatabaseReference database;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,13 +35,13 @@ public class LoginActivity extends AppCompatActivity {
         textForgotPassword = findViewById(R.id.textForgotPassword);
 
         auth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
+        database = FirebaseDatabase.getInstance("https://tunispromos-default-rtdb.europe-west1.firebasedatabase.app")
+                .getReference("users");
+        // ✅ pas de redéclaration
 
         btnLogin.setOnClickListener(v -> loginUser());
 
-        btnGoSignUp.setOnClickListener(v -> {
-            startActivity(new Intent(this, SignUpActivity.class));
-        });
+        btnGoSignUp.setOnClickListener(v -> startActivity(new Intent(this, SignUpActivity.class)));
 
         textForgotPassword.setOnClickListener(v -> showForgotPasswordDialog());
     }
@@ -49,7 +50,7 @@ public class LoginActivity extends AppCompatActivity {
         String email = editEmail.getText().toString().trim();
         String password = editPassword.getText().toString().trim();
 
-        if(email.isEmpty() || password.isEmpty()){
+        if (email.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Remplissez tous les champs", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -59,27 +60,32 @@ public class LoginActivity extends AppCompatActivity {
 
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
-                    if(task.isSuccessful()){
+                    if (task.isSuccessful()) {
                         String uid = auth.getCurrentUser().getUid();
-                        db.collection("users").document(uid).get()
-                                .addOnSuccessListener(doc -> {
-                                    String role = doc.getString("role");
-                                    if("provider".equals(role)){
-                                        startActivity(new Intent(this, ProviderActivity.class));
+
+                        database.child(uid).get()
+                                .addOnSuccessListener(dataSnapshot -> {
+                                    if (dataSnapshot.exists()) {
+                                        String role = dataSnapshot.child("role").getValue(String.class);
+                                        if ("provider".equals(role)) {
+                                            startActivity(new Intent(this, ProviderActivity.class));
+                                        } else {
+                                            startActivity(new Intent(this, UserActivity.class));
+                                        }
+                                        finish();
                                     } else {
-                                        startActivity(new Intent(this, UserActivity.class));
+                                        Toast.makeText(this, "Profil utilisateur introuvable", Toast.LENGTH_SHORT).show();
+                                        btnLogin.setEnabled(true);
+                                        btnLogin.setText("Se connecter");
                                     }
-                                    finish();
                                 })
                                 .addOnFailureListener(e -> {
-                                    Toast.makeText(this, "Erreur de récupération du profil",
-                                            Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(this, "Erreur de récupération du profil", Toast.LENGTH_SHORT).show();
                                     btnLogin.setEnabled(true);
                                     btnLogin.setText("Se connecter");
                                 });
                     } else {
-                        Toast.makeText(this, "Email ou mot de passe incorrect",
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Email ou mot de passe incorrect", Toast.LENGTH_SHORT).show();
                         btnLogin.setEnabled(true);
                         btnLogin.setText("Se connecter");
                     }
@@ -97,30 +103,24 @@ public class LoginActivity extends AppCompatActivity {
 
         builder.setPositiveButton("Envoyer", (dialog, which) -> {
             String email = input.getText().toString().trim();
-            if(email.isEmpty()){
-                Toast.makeText(this, "Veuillez entrer votre email",
-                        Toast.LENGTH_SHORT).show();
+            if (email.isEmpty()) {
+                Toast.makeText(this, "Veuillez entrer votre email", Toast.LENGTH_SHORT).show();
             } else {
                 resetPassword(email);
             }
         });
 
         builder.setNegativeButton("Annuler", (dialog, which) -> dialog.cancel());
-
         builder.show();
     }
 
     private void resetPassword(String email) {
         auth.sendPasswordResetEmail(email)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this,
-                            "Email de réinitialisation envoyé. Vérifiez votre boîte mail.",
-                            Toast.LENGTH_LONG).show();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this,
-                            "Erreur: vérifiez que l'email est correct",
-                            Toast.LENGTH_SHORT).show();
-                });
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(this, "Email de réinitialisation envoyé", Toast.LENGTH_LONG).show()
+                )
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Erreur: vérifiez l'email", Toast.LENGTH_SHORT).show()
+                );
     }
 }

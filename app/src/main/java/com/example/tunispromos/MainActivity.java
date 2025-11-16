@@ -3,40 +3,38 @@ package com.example.tunispromos;
 import android.content.Intent;
 import android.os.Bundle;
 
-
 import androidx.appcompat.app.AppCompatActivity;
-
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class MainActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
-    private FirebaseFirestore db;
+    private DatabaseReference database;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialiser Firebase
-
         FirebaseApp.initializeApp(this);
         auth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
-        // Vérifier si l'utilisateur est déjà connecté
+        database = FirebaseDatabase.getInstance().getReference();
+
         FirebaseUser currentUser = auth.getCurrentUser();
 
         if (currentUser != null) {
-            // Utilisateur connecté - récupérer son rôle et rediriger
             String uid = currentUser.getUid();
-            db.collection("users").document(uid).get()
-                    .addOnSuccessListener(doc -> {
-                        if (doc.exists()) {
-                            String role = doc.getString("role");
+
+            // CHANGEMENT : Utiliser Realtime Database
+            database.child("users").child(uid).get()
+                    .addOnSuccessListener(dataSnapshot -> {
+                        if (dataSnapshot.exists()) {
+                            String role = dataSnapshot.child("role").getValue(String.class);
                             if ("provider".equals(role)) {
                                 startActivity(new Intent(MainActivity.this, ProviderActivity.class));
                             } else {
@@ -44,23 +42,18 @@ public class MainActivity extends AppCompatActivity {
                             }
                             finish();
                         } else {
-                            // Document utilisateur n'existe pas - déconnecter et aller au login
                             auth.signOut();
                             startActivity(new Intent(MainActivity.this, LoginActivity.class));
                             finish();
                         }
                     })
                     .addOnFailureListener(e -> {
-                        // Erreur lors de la récupération - aller au login
                         startActivity(new Intent(MainActivity.this, LoginActivity.class));
                         finish();
                     });
         } else {
-            // Pas d'utilisateur connecté - aller au login
             startActivity(new Intent(MainActivity.this, LoginActivity.class));
             finish();
         }
-
-
     }
 }

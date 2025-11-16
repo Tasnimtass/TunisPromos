@@ -1,38 +1,40 @@
 package com.example.tunispromos;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class PromotionDetailActivity extends AppCompatActivity {
+
+    private static final String TAG = "PromotionDetail";
 
     private ImageView imagePromo;
     private TextView textTitle, textDescription, textPriceBefore, textPriceAfter,
             textCategory, textDates, textDiscount;
 
-    private FirebaseFirestore db;
+    private DatabaseReference database;
     private String promoId;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_promotion_detail);
 
-        // Activer le bouton retour
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("Détails de la promotion");
         }
+
         imagePromo = findViewById(R.id.imagePromoDetail);
         textTitle = findViewById(R.id.textTitleDetail);
         textDescription = findViewById(R.id.textDescriptionDetail);
@@ -42,57 +44,68 @@ public class PromotionDetailActivity extends AppCompatActivity {
         textDates = findViewById(R.id.textDatesDetail);
         textDiscount = findViewById(R.id.textDiscountDetail);
 
-        db = FirebaseFirestore.getInstance();
+        database = FirebaseDatabase.getInstance().getReference();
 
-        // Récupérer l'ID de la promotion
         promoId = getIntent().getStringExtra("promoId");
 
         if (promoId != null) {
             loadPromotionDetails();
+        } else {
+            Toast.makeText(this, "Erreur: ID promotion manquant", Toast.LENGTH_SHORT).show();
+            finish();
         }
     }
-    private void loadPromotionDetails() {
-        db.collection("promotions").document(promoId).get()
-                .addOnSuccessListener(doc -> {
-                    if (doc.exists()) {
-                        String title = doc.getString("title");
-                        String description = doc.getString("description");
-                        String priceBefore = doc.getString("priceBefore");
-                        String priceAfter = doc.getString("priceAfter");
-                        String category = doc.getString("category");
-                        String startDate = doc.getString("startDate");
-                        String endDate = doc.getString("endDate");
-                        String imageUrl = doc.getString("imageUrl");
 
-                        // Affichage des données
+    // CHANGEMENT : Utiliser Realtime Database
+    private void loadPromotionDetails() {
+        database.child("promotions").child(promoId).get()
+                .addOnSuccessListener(dataSnapshot -> {
+                    if (dataSnapshot.exists()) {
+                        String title = dataSnapshot.child("title").getValue(String.class);
+                        String description = dataSnapshot.child("description").getValue(String.class);
+                        String category = dataSnapshot.child("category").getValue(String.class);
+                        String startDate = dataSnapshot.child("startDate").getValue(String.class);
+                        String endDate = dataSnapshot.child("endDate").getValue(String.class);
+                        String imageUrl = dataSnapshot.child("imageUrl").getValue(String.class);
+
+                        Double priceBefore = dataSnapshot.child("priceBefore").getValue(Double.class);
+                        Double priceAfter = dataSnapshot.child("priceAfter").getValue(Double.class);
+
                         textTitle.setText(title);
                         textDescription.setText(description);
-                        textPriceBefore.setText(priceBefore + " DT");
-                        textPriceAfter.setText(priceAfter + " DT");
                         textCategory.setText("Catégorie: " + category);
                         textDates.setText("Valide du " + startDate + " au " + endDate);
 
-                        // Calculer le pourcentage de réduction
-                        try {
-                            double before = Double.parseDouble(priceBefore);
-                            double after = Double.parseDouble(priceAfter);
-                            double discount = ((before - after) / before) * 100;
+                        if(priceBefore != null && priceAfter != null) {
+                            textPriceBefore.setText(String.format("%.2f DT", priceBefore));
+                            textPriceAfter.setText(String.format("%.2f DT", priceAfter));
+
+                            double discount = ((priceBefore - priceAfter) / priceBefore) * 100;
                             textDiscount.setText("-" + String.format("%.0f", discount) + "%");
-                        } catch (NumberFormatException e) {
+                        } else {
+                            Log.e(TAG, "Prix manquants dans le document");
+                            textPriceBefore.setText("N/A");
+                            textPriceAfter.setText("N/A");
                             textDiscount.setVisibility(View.GONE);
                         }
 
-                        // Charger l'image
                         if (imageUrl != null && !imageUrl.isEmpty()) {
                             Glide.with(this)
                                     .load(imageUrl)
                                     .placeholder(R.drawable.ic_launcher_background)
+                                    .error(R.drawable.ic_launcher_background)
                                     .into(imagePromo);
                         }
+                    } else {
+                        Log.e(TAG, "Document n'existe pas");
+                        Toast.makeText(this, "Promotion introuvable", Toast.LENGTH_SHORT).show();
+                        finish();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    // Gérer l'erreur
+                    Log.e(TAG, "Erreur chargement promotion", e);
+                    Toast.makeText(this, "Erreur: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    finish();
                 });
     }
 
