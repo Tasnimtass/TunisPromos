@@ -79,8 +79,9 @@ public class AddPromotionActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null){
+        if(requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null){
             imageUri = data.getData();
+            imagePreview.setVisibility(ImageView.VISIBLE); // ✅ Afficher l'image
             imagePreview.setImageURI(imageUri);
         }
     }
@@ -95,12 +96,14 @@ public class AddPromotionActivity extends AppCompatActivity {
         String endDate = editEndDate.getText().toString().trim();
         String providerId = auth.getCurrentUser().getUid();
 
+        // Validation des champs
         if(title.isEmpty() || description.isEmpty() || priceBeforeStr.isEmpty() ||
                 priceAfterStr.isEmpty() || category.isEmpty() || startDate.isEmpty() || endDate.isEmpty()){
             Toast.makeText(this, "Remplissez tous les champs", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Validation des prix
         double priceBefore, priceAfter;
         try {
             priceBefore = Double.parseDouble(priceBeforeStr);
@@ -120,33 +123,54 @@ public class AddPromotionActivity extends AppCompatActivity {
             return;
         }
 
+        // Validation de l'image
+        if (imageUri == null && promoId == null) {
+            Toast.makeText(this, "Veuillez sélectionner une image", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         btnSave.setEnabled(false);
         btnSave.setText("Enregistrement...");
 
+        // Si une nouvelle image est sélectionnée, upload d'abord
         if (imageUri != null) {
-            String extension = getFileExtension(imageUri); // récupère jpg, png, etc.
-            if (extension == null) extension = "jpg"; // fallback si pas détectée
-
-            StorageReference ref = FirebaseStorage.getInstance()
-                    .getReference()
-                    .child("promo_images/" + UUID.randomUUID().toString() + "." + extension);
-
-            ref.putFile(imageUri)
-                    .addOnSuccessListener(taskSnapshot ->
-                            ref.getDownloadUrl().addOnSuccessListener(uri -> {
-                                String imageUrl = uri.toString();
-                                // sauvegarder imageUrl avec promotion dans Realtime Database
-                                Toast.makeText(this, "Image uploadée avec succès !", Toast.LENGTH_SHORT).show();
-                            })
-                    )
-                    .addOnFailureListener(e ->
-                            Toast.makeText(this, "Erreur upload : " + e.getMessage(), Toast.LENGTH_SHORT).show()
-                    );
+            uploadImageAndSave(title, description, priceBefore, priceAfter, category, startDate, endDate, providerId);
         } else {
-            Toast.makeText(this, "Veuillez sélectionner une image", Toast.LENGTH_SHORT).show();
+            // Mode édition sans changement d'image : récupérer l'URL existante
+            database.child("promotions").child(promoId).child("imageUrl").get()
+                    .addOnSuccessListener(dataSnapshot -> {
+                        String existingImageUrl = dataSnapshot.getValue(String.class);
+                        saveToDatabase(title, description, priceBefore, priceAfter,
+                                category, startDate, endDate, providerId, existingImageUrl);
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Erreur de récupération de l'image", Toast.LENGTH_SHORT).show();
+                        btnSave.setEnabled(true);
+                        btnSave.setText("Enregistrer");
+                    });
         }
+    }
 
+    private void uploadImageAndSave(String title, String description, double priceBefore, double priceAfter,
+                                    String category, String startDate, String endDate, String providerId) {
+        String extension = getFileExtension(imageUri);
+        if (extension == null) extension = "jpg";
 
+        StorageReference ref = FirebaseStorage.getInstance()
+                .getReference()
+                .child("promo_images/" + UUID.randomUUID().toString() + "." + extension);
+
+        ref.putFile(imageUri)
+                .addOnSuccessListener(taskSnapshot -> {
+                    ref.getDownloadUrl().addOnSuccessListener(uri -> {
+                        String imageUrl = uri.toString();
+                        Log.d(TAG, "Image uploadée avec succès : " + imageUrl);
+                        // ✅ CORRECTION : Maintenant on sauvegarde dans la base de données
+                        saveToDatabase(title, description, priceBefore, priceAfter,
+                                category, startDate, endDate, providerId, imageUrl);
+                    }).addOnFailureListener(e -> handleUploadError(e));
+                })
+                .addOnFailureListener(e -> handleUploadError(e));
     }
 
     private void saveToDatabase(String title, String description, double priceBefore, double priceAfter,
@@ -167,13 +191,18 @@ public class AddPromotionActivity extends AppCompatActivity {
         promo.put("providerId", providerId);
         promo.put("imageUrl", imageUrl);
 
+        Log.d(TAG, "Sauvegarde de la promotion avec imageUrl : " + imageUrl);
+
         database.child("promotions").child(promoId).setValue(promo)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Promotion enregistrée !", Toast.LENGTH_SHORT).show();
                     finish();
                 })
                 .addOnFailureListener(e -> {
-                    handleUploadError(e);
+                    Log.e(TAG, "Erreur de sauvegarde", e);
+                    Toast.makeText(this, "Erreur: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    btnSave.setEnabled(true);
+                    btnSave.setText("Enregistrer");
                 });
     }
 
@@ -183,11 +212,10 @@ public class AddPromotionActivity extends AppCompatActivity {
         return mime.getExtensionFromMimeType(cR.getType(uri));
     }
 
-
     private void handleUploadError(Exception e){
         Log.e(TAG, "Erreur upload", e);
         Toast.makeText(this, e != null ? e.getMessage() : "Erreur upload", Toast.LENGTH_LONG).show();
-        btnSave.setEnabled(true);
+        btnSave.setEnabled(false);
         btnSave.setText("Enregistrer");
     }
 
@@ -206,6 +234,7 @@ public class AddPromotionActivity extends AppCompatActivity {
 
                 String imageUrl = dataSnapshot.child("imageUrl").getValue(String.class);
                 if(imageUrl != null && !imageUrl.isEmpty()){
+                    imagePreview.setVisibility(ImageView.VISIBLE);
                     Glide.with(this).load(imageUrl).into(imagePreview);
                 }
             }
