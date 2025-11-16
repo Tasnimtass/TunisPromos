@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">TunisPromos</string>
+    <string-array name="roles_array">
+        <item>user</item>
+        <item>provider</item>
+    </string-array>
+    <!-- Common Strings -->
+    <string name="login">Se connecter</string>
+    <string name="signup">S\'inscrire</string>
+    <string name="email">Email</string>
+    <string name="password">Mot de passe</string>
+    <string name="name">Nom</string>
+    <string name="save">Enregistrer</string>
+    <string name="cancel">Annuler</string>
+    <string name="delete">Supprimer</string>
+    <string name="edit">Modifier</string>
+
+    <!-- Promotion Strings -->
+    <string name="title">Titre</string>
+    <string name="description">Description</string>
+    <string name="category">Catégorie</string>
+    <string name="price_before">Prix initial</string>
+    <string name="price_after">Prix promotionnel</string>
+    <string name="start_date">Date début</string>
+    <string name="end_date">Date fin</string>
+    <string name="select_image">Choisir image</string>
+    <string name="search_promotion">Rechercher une promotion</string>
+    <string name="add_promotion">Ajouter une promotion</string>
+
+    <!-- Messages -->
+    <string name="fill_all_fields">Remplissez tous les champs</string>
+    <string name="auth_error">Erreur d\'authentification</string>
+    <string name="firestore_error">Erreur Firestore</string>
+    <string name="promotion_saved">Promotion enregistrée !</string>
+    <string name="promotion_deleted">Supprimé</string>
+    <string name="signup_success">Inscription réussie</string>
+</resources>

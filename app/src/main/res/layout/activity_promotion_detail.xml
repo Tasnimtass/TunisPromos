@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Image de la promotion -->
+        <ImageView
+            android:id="@+id/imagePromoDetail"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:scaleType="centerCrop"
+            android:background="#E0E0E0"/>
+
+        <!-- Badge de réduction -->
+        <TextView
+            android:id="@+id/textDiscountDetail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:background="@android:color/holo_red_dark"
+            android:padding="8dp"
+            android:text="-50%"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"/>
+
+        <!-- Contenu principal -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="#FFFFFF"
+            android:layout_margin="8dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <!-- Titre -->
+            <TextView
+                android:id="@+id/textTitleDetail"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#212121"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Titre de la promotion"/>
+
+            <!-- Catégorie -->
+            <TextView
+                android:id="@+id/textCategoryDetail"
+                android:textSize="14sp"
+                android:textColor="#757575"
+                android:layout_marginTop="4dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Catégorie: Électronique"/>
+
+            <!-- Séparateur -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:background="#E0E0E0"/>
+
+            <!-- Prix -->
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/textPriceBeforeDetail"
+                    android:textSize="18sp"
+                    android:textColor="#757575"
+                    android:layout_marginEnd="12dp"
+                    android:text="199.99 DT"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:id="@+id/textPriceAfterDetail"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/holo_red_dark"
+                    android:text="99.99 DT"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+            </LinearLayout>
+
+            <!-- Dates de validité -->
+            <TextView
+                android:id="@+id/textDatesDetail"
+                android:textSize="14sp"
+                android:textColor="#757575"
+                android:layout_marginTop="16dp"
+                android:drawableStart="@android:drawable/ic_menu_my_calendar"
+                android:drawablePadding="8dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Valide du 01/01/2024 au 31/01/2024"/>
+
+            <!-- Séparateur -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:background="#E0E0E0"/>
+
+            <!-- Description -->
+            <TextView
+                android:text="Description"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#212121"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+
+            <TextView
+                android:id="@+id/textDescriptionDetail"
+                android:textSize="16sp"
+                android:textColor="#424242"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginTop="8dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Description de la promotion..."/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
