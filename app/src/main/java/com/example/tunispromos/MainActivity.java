@@ -24,6 +24,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialiser Firebase
 
+        FirebaseApp.initializeApp(this);
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         // Vérifier si l'utilisateur est déjà connecté
