@@ -1,11 +1,9 @@
 package com.example.tunispromos;
 
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
-import android.webkit.MimeTypeMap;
+import android.util.Base64;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -18,17 +16,15 @@ import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 public class AddPromotionActivity extends AppCompatActivity {
 
     private static final int PICK_IMAGE_REQUEST = 1;
-    private static final String TAG = "AddPromotionActivity";
 
     private EditText editTitle, editDescription, editPriceBefore, editPriceAfter, editCategory, editStartDate, editEndDate;
     private Button btnSelectImage, btnSave;
@@ -38,13 +34,13 @@ public class AddPromotionActivity extends AppCompatActivity {
     private String promoId;
     private FirebaseAuth auth;
     private DatabaseReference database;
-    private FirebaseStorage storage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_promotion);
 
+        // Initialiser les vues
         editTitle = findViewById(R.id.editTitle);
         editDescription = findViewById(R.id.editDescription);
         editPriceBefore = findViewById(R.id.editPriceBefore);
@@ -56,35 +52,61 @@ public class AddPromotionActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.buttonSave);
         imagePreview = findViewById(R.id.imagePreview);
 
+        // Initialiser Firebase
         auth = FirebaseAuth.getInstance();
-        database = FirebaseDatabase.getInstance().getReference();
-        storage = FirebaseStorage.getInstance();
+        database = FirebaseDatabase.getInstance(
+                "https://tunispromos-default-rtdb.europe-west1.firebasedatabase.app"
+        ).getReference();
 
+        // Vérifier si on édite une promo existante
         promoId = getIntent().getStringExtra("promoId");
         if(promoId != null){
             loadPromotion(promoId);
         }
 
+        // Demande des permissions
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_MEDIA_IMAGES}, 1);
+        } else {
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
+        }
+
+        // Sélection d'image
         btnSelectImage.setOnClickListener(v -> selectImage());
+
+        // Sauvegarde de la promotion
         btnSave.setOnClickListener(v -> savePromotion());
     }
 
     private void selectImage() {
-        Intent intent = new Intent();
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("image/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
         startActivityForResult(intent, PICK_IMAGE_REQUEST);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null){
+
+        if(requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null){
             imageUri = data.getData();
-            imagePreview.setVisibility(ImageView.VISIBLE); // ✅ Afficher l'image
-            imagePreview.setImageURI(imageUri);
+
+            // Garde la permission pour Android 10+
+            getContentResolver().takePersistableUriPermission(
+                    imageUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+            );
+
+            // AFFICHAGE DIRECT AVEC GLIDE (ne plus utiliser BitmapFactory ici)
+            Glide.with(this)
+                    .load(imageUri)
+                    .into(imagePreview);
+
+            imagePreview.setVisibility(ImageView.VISIBLE);
         }
     }
+
 
     private void savePromotion() {
         String title = editTitle.getText().toString().trim();
@@ -94,6 +116,12 @@ public class AddPromotionActivity extends AppCompatActivity {
         String category = editCategory.getText().toString().trim();
         String startDate = editStartDate.getText().toString().trim();
         String endDate = editEndDate.getText().toString().trim();
+
+        if(auth.getCurrentUser() == null) {
+            Toast.makeText(this, "Utilisateur non connecté", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String providerId = auth.getCurrentUser().getUid();
 
         // Validation des champs
@@ -108,12 +136,10 @@ public class AddPromotionActivity extends AppCompatActivity {
         try {
             priceBefore = Double.parseDouble(priceBeforeStr);
             priceAfter = Double.parseDouble(priceAfterStr);
-
             if(priceBefore <= 0 || priceAfter <= 0) {
                 Toast.makeText(this, "Les prix doivent être positifs", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             if(priceAfter >= priceBefore) {
                 Toast.makeText(this, "Le prix promotionnel doit être inférieur au prix initial", Toast.LENGTH_SHORT).show();
                 return;
@@ -128,53 +154,50 @@ public class AddPromotionActivity extends AppCompatActivity {
             Toast.makeText(this, "Veuillez sélectionner une image", Toast.LENGTH_SHORT).show();
             return;
         }
+        if(endDate.compareTo(startDate) <= 0 ){
+            Toast.makeText(this, "La date de fin doit être après la date de début", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         btnSave.setEnabled(false);
         btnSave.setText("Enregistrement...");
 
-        // Si une nouvelle image est sélectionnée, upload d'abord
-        if (imageUri != null) {
-            uploadImageAndSave(title, description, priceBefore, priceAfter, category, startDate, endDate, providerId);
-        } else {
-            // Mode édition sans changement d'image : récupérer l'URL existante
-            database.child("promotions").child(promoId).child("imageUrl").get()
-                    .addOnSuccessListener(dataSnapshot -> {
-                        String existingImageUrl = dataSnapshot.getValue(String.class);
-                        saveToDatabase(title, description, priceBefore, priceAfter,
-                                category, startDate, endDate, providerId, existingImageUrl);
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "Erreur de récupération de l'image", Toast.LENGTH_SHORT).show();
-                        btnSave.setEnabled(true);
-                        btnSave.setText("Enregistrer");
-                    });
+        // Conversion en Base64 si nouvelle image
+        String imageBase64 = null;
+        if(imageUri != null){
+            imageBase64 = convertImageToBase64(imageUri);
+            if(imageBase64 == null){
+                Toast.makeText(this, "Erreur conversion image", Toast.LENGTH_SHORT).show();
+                btnSave.setEnabled(true);
+                btnSave.setText("Enregistrer");
+                return;
+            }
+        }
+
+        saveToDatabase(title, description, priceBefore, priceAfter, category, startDate, endDate, providerId, imageBase64);
+    }
+
+    private String convertImageToBase64(Uri imageUri) {
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(imageUri);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                baos.write(buffer, 0, length);
+            }
+            inputStream.close();
+            byte[] imageBytes = baos.toByteArray();
+            return Base64.encodeToString(imageBytes, Base64.DEFAULT);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
-    private void uploadImageAndSave(String title, String description, double priceBefore, double priceAfter,
-                                    String category, String startDate, String endDate, String providerId) {
-        String extension = getFileExtension(imageUri);
-        if (extension == null) extension = "jpg";
-
-        StorageReference ref = FirebaseStorage.getInstance()
-                .getReference()
-                .child("promo_images/" + UUID.randomUUID().toString() + "." + extension);
-
-        ref.putFile(imageUri)
-                .addOnSuccessListener(taskSnapshot -> {
-                    ref.getDownloadUrl().addOnSuccessListener(uri -> {
-                        String imageUrl = uri.toString();
-                        Log.d(TAG, "Image uploadée avec succès : " + imageUrl);
-                        // ✅ CORRECTION : Maintenant on sauvegarde dans la base de données
-                        saveToDatabase(title, description, priceBefore, priceAfter,
-                                category, startDate, endDate, providerId, imageUrl);
-                    }).addOnFailureListener(e -> handleUploadError(e));
-                })
-                .addOnFailureListener(e -> handleUploadError(e));
-    }
 
     private void saveToDatabase(String title, String description, double priceBefore, double priceAfter,
-                                String category, String startDate, String endDate, String providerId, String imageUrl){
+                                String category, String startDate, String endDate, String providerId, String imageBase64){
         if(promoId == null){
             promoId = database.child("promotions").push().getKey();
         }
@@ -189,9 +212,7 @@ public class AddPromotionActivity extends AppCompatActivity {
         promo.put("startDate", startDate);
         promo.put("endDate", endDate);
         promo.put("providerId", providerId);
-        promo.put("imageUrl", imageUrl);
-
-        Log.d(TAG, "Sauvegarde de la promotion avec imageUrl : " + imageUrl);
+        promo.put("imageBase64", imageBase64);
 
         database.child("promotions").child(promoId).setValue(promo)
                 .addOnSuccessListener(aVoid -> {
@@ -199,24 +220,10 @@ public class AddPromotionActivity extends AppCompatActivity {
                     finish();
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Erreur de sauvegarde", e);
                     Toast.makeText(this, "Erreur: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     btnSave.setEnabled(true);
                     btnSave.setText("Enregistrer");
                 });
-    }
-
-    public String getFileExtension(Uri uri) {
-        ContentResolver cR = getContentResolver();
-        MimeTypeMap mime = MimeTypeMap.getSingleton();
-        return mime.getExtensionFromMimeType(cR.getType(uri));
-    }
-
-    private void handleUploadError(Exception e){
-        Log.e(TAG, "Erreur upload", e);
-        Toast.makeText(this, e != null ? e.getMessage() : "Erreur upload", Toast.LENGTH_LONG).show();
-        btnSave.setEnabled(false);
-        btnSave.setText("Enregistrer");
     }
 
     private void loadPromotion(String promoId){
@@ -232,10 +239,14 @@ public class AddPromotionActivity extends AppCompatActivity {
                 editStartDate.setText(dataSnapshot.child("startDate").getValue(String.class));
                 editEndDate.setText(dataSnapshot.child("endDate").getValue(String.class));
 
-                String imageUrl = dataSnapshot.child("imageUrl").getValue(String.class);
-                if(imageUrl != null && !imageUrl.isEmpty()){
+                String imageBase64 = dataSnapshot.child("imageBase64").getValue(String.class);
+                if(imageBase64 != null && !imageBase64.isEmpty()){
+                    byte[] decodedBytes = Base64.decode(imageBase64, Base64.DEFAULT);
+                    Glide.with(this)
+                            .asBitmap()
+                            .load(decodedBytes)
+                            .into(imagePreview);
                     imagePreview.setVisibility(ImageView.VISIBLE);
-                    Glide.with(this).load(imageUrl).into(imagePreview);
                 }
             }
         }).addOnFailureListener(e -> {

@@ -19,13 +19,13 @@ import java.util.List;
 public class PromotionAdapter extends RecyclerView.Adapter<PromotionAdapter.PromoViewHolder> {
 
     private List<Promotion> promotions;
-    private List<Promotion> promotionsFull; // pour filtrage
-    private Context context; // CORRECTION : Ajouter le context
+    private List<Promotion> promotionsFull; // Liste complète pour la recherche
+    private Context context;
 
     public PromotionAdapter(List<Promotion> promotions, Context context) {
         this.promotions = promotions;
         this.promotionsFull = new ArrayList<>(promotions);
-        this.context = context; // CORRECTION
+        this.context = context;
     }
 
     @NonNull
@@ -43,7 +43,6 @@ public class PromotionAdapter extends RecyclerView.Adapter<PromotionAdapter.Prom
         holder.textPrice.setText(p.getPriceAfter() + " DT");
         holder.textPriceBefore.setText(p.getPriceBefore() + " DT");
 
-        // CORRECTION : Charger l'image avec Glide
         if(p.getImageUrl() != null && !p.getImageUrl().isEmpty()){
             Glide.with(context)
                     .load(p.getImageUrl())
@@ -51,7 +50,6 @@ public class PromotionAdapter extends RecyclerView.Adapter<PromotionAdapter.Prom
                     .into(holder.imagePromo);
         }
 
-        // CORRECTION : Rendre les cartes cliquables
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(context, PromotionDetailActivity.class);
             intent.putExtra("promoId", p.getId());
@@ -64,6 +62,7 @@ public class PromotionAdapter extends RecyclerView.Adapter<PromotionAdapter.Prom
         return promotions.size();
     }
 
+    // Méthode pour filtrer
     public void filter(String text) {
         promotions.clear();
         if(text.isEmpty()){
@@ -80,9 +79,15 @@ public class PromotionAdapter extends RecyclerView.Adapter<PromotionAdapter.Prom
         notifyDataSetChanged();
     }
 
+    // Mettre à jour la liste complète
+    public void updateFullList(List<Promotion> newList) {
+        promotionsFull.clear();
+        promotionsFull.addAll(newList);
+    }
+
     static class PromoViewHolder extends RecyclerView.ViewHolder {
         TextView textTitle, textDescription, textPrice, textPriceBefore;
-        ImageView imagePromo; // CORRECTION : Ajouter l'ImageView
+        ImageView imagePromo;
 
         public PromoViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -90,7 +95,7 @@ public class PromotionAdapter extends RecyclerView.Adapter<PromotionAdapter.Prom
             textDescription = itemView.findViewById(R.id.textDescription);
             textPrice = itemView.findViewById(R.id.textPrice);
             textPriceBefore = itemView.findViewById(R.id.textPriceBefore);
-            imagePromo = itemView.findViewById(R.id.imagePromo); // CORRECTION
+            imagePromo = itemView.findViewById(R.id.imagePromo);
         }
     }
 }

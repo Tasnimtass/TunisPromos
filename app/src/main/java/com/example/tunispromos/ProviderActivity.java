@@ -25,7 +25,7 @@ import java.util.List;
 public class ProviderActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
-    private Button btnAddPromo;
+    private Button btnAddPromo, btnLogout;
     private List<Promotion> promotionList;
     private ProviderPromotionAdapter adapter;
 
@@ -49,13 +49,23 @@ public class ProviderActivity extends AppCompatActivity {
         adapter = new ProviderPromotionAdapter(promotionList);
         recyclerView.setAdapter(adapter);
 
-        database = FirebaseDatabase.getInstance().getReference();
+        database = FirebaseDatabase.getInstance(
+                "https://tunispromos-default-rtdb.europe-west1.firebasedatabase.app"
+        ).getReference();
         auth = FirebaseAuth.getInstance();
 
         loadProviderPromotions();
 
         btnAddPromo.setOnClickListener(v -> {
             startActivity(new Intent(this, AddPromotionActivity.class));
+        });
+
+        Button btnLogout = findViewById(R.id.btnLogout);
+        btnLogout.setOnClickListener(v -> {
+            FirebaseAuth.getInstance().signOut();
+            Toast.makeText(ProviderActivity.this, "Déconnexion réussie", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(ProviderActivity.this, LoginActivity.class));
+            finish();
         });
     }
 

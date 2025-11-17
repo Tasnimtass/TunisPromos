@@ -44,7 +44,9 @@ public class PromotionDetailActivity extends AppCompatActivity {
         textDates = findViewById(R.id.textDatesDetail);
         textDiscount = findViewById(R.id.textDiscountDetail);
 
-        database = FirebaseDatabase.getInstance().getReference();
+        database = FirebaseDatabase.getInstance(
+                "https://tunispromos-default-rtdb.europe-west1.firebasedatabase.app"
+        ).getReference();
 
         promoId = getIntent().getStringExtra("promoId");
 

@@ -23,7 +23,9 @@ public class ProviderPromotionAdapter extends RecyclerView.Adapter<ProviderPromo
 
     public ProviderPromotionAdapter(List<Promotion> promotions) {
         this.promotions = promotions;
-        this.database = FirebaseDatabase.getInstance().getReference();
+        this.database = FirebaseDatabase.getInstance(
+                "https://tunispromos-default-rtdb.europe-west1.firebasedatabase.app"
+        ).getReference();
     }
 
     @NonNull

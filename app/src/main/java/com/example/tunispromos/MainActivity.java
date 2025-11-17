@@ -23,7 +23,9 @@ public class MainActivity extends AppCompatActivity {
 
         FirebaseApp.initializeApp(this);
         auth = FirebaseAuth.getInstance();
-        database = FirebaseDatabase.getInstance().getReference();
+        database = FirebaseDatabase.getInstance(
+                "https://tunispromos-default-rtdb.europe-west1.firebasedatabase.app"
+        ).getReference();
 
         FirebaseUser currentUser = auth.getCurrentUser();
 
